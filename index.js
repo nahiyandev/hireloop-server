@@ -31,12 +31,125 @@ await connectToMongoDB();
 const dbName = process.env.MONGODB_DB_NAME || 'hireloopdb';
 const database = client.db(dbName);
 const usersCollection = database.collection('user');
+const jobsCollection = database.collection('jobs');
 
 app.get('/', (req, res) => {
   res.send('Hello World!');
 });
 
-import { demoUsers, seedUsers } from './seed.js';
+import { demoUsers, seedUsers, demoJobs, seedJobs } from './seed.js';
+
+// ==========================================
+// JOBS API ENDPOINTS
+// ==========================================
+
+// 1. Submit / Create New Job Post
+app.post('/jobs', async (req, res) => {
+  try {
+    const jobData = req.body;
+    if (!jobData.title || !jobData.company) {
+      return res.status(400).json({ error: "Job title and company name are required." });
+    }
+
+    const newJob = {
+      ...jobData,
+      status: jobData.status || "Active",
+      applicantsCount: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const result = await jobsCollection.insertOne(newJob);
+    res.status(201).json({
+      message: "Job posted successfully!",
+      jobId: result.insertedId,
+      job: { ...newJob, _id: result.insertedId },
+    });
+  } catch (err) {
+    console.error("Error submitting job:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// 2. Fetch All Jobs with Search & Filters
+app.get('/jobs', async (req, res) => {
+  try {
+    const { search, category, status } = req.query;
+    const query = {};
+
+    if (status && status !== "all") {
+      query.status = new RegExp(`^${status}$`, "i");
+    }
+    if (category && category !== "all") {
+      query.category = category;
+    }
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { company: { $regex: search, $options: "i" } },
+        { location: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const jobs = await jobsCollection.find(query).sort({ createdAt: -1 }).toArray();
+    res.json(jobs);
+  } catch (err) {
+    console.error("Error fetching jobs:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// 3. Fetch Single Job by ID
+app.get('/jobs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let query = { _id: id };
+    try {
+      const { ObjectId } = await import('mongodb');
+      if (ObjectId.isValid(id)) {
+        query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+      }
+    } catch {}
+
+    const job = await jobsCollection.findOne(query);
+    if (!job) return res.status(404).json({ error: "Job listing not found." });
+    res.json(job);
+  } catch (err) {
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// 4. Delete Job Post by ID
+app.delete('/jobs/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let query = { _id: id };
+    try {
+      const { ObjectId } = await import('mongodb');
+      if (ObjectId.isValid(id)) {
+        query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+      }
+    } catch {}
+
+    const result = await jobsCollection.deleteOne(query);
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "Job listing not found." });
+    }
+    res.json({ message: "Job post deleted successfully." });
+  } catch (err) {
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// 5. Seed Jobs Endpoint
+app.get('/jobs/seed', async (req, res) => {
+  try {
+    const total = await seedJobs();
+    res.json({ message: "Jobs seeded successfully!", totalJobs: total });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to seed jobs" });
+  }
+});
 
 app.get('/users', async (req, res) => {
   try {

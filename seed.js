@@ -468,7 +468,181 @@ export async function seedUsers() {
   }
 }
 
+export const demoJobs = [
+  {
+    _id: "job-f1",
+    title: "Senior Full-Stack Engineer",
+    dept: "Engineering",
+    company: "HirePulse Network",
+    category: "Engineering & Tech",
+    location: "Remote (New York, USA)",
+    isRemote: true,
+    jobType: "Full-time",
+    minSalary: "25",
+    maxSalary: "40",
+    salaryFrequency: "per hour",
+    compensation: "€25 – €40 / hr",
+    applicantsCount: 34,
+    deadline: "2025-05-30",
+    postedTime: "Posted 4d ago",
+    status: "Active",
+    responsibilities:
+      "Showcase your commitment to delivering exceptional user interfaces and digital experiences. You will collaborate directly with systems designers and backend engineers to craft responsive, micro-interaction rich products.",
+    requirements:
+      "• 3+ years of experience with React, TypeScript, and modern state architectures\n• Solid understanding of DOM performance and component-driven designs\n• Experience partnering closely with product teams and UI/UX designers",
+    createdAt: new Date("2026-02-01T10:00:00Z"),
+    updatedAt: new Date("2026-02-01T10:00:00Z"),
+  },
+  {
+    _id: "job-f2",
+    title: "Lead Systems Architect",
+    dept: "Core Platform",
+    company: "HirePulse Labs",
+    category: "Engineering & Tech",
+    location: "London, UK (Hybrid)",
+    isRemote: false,
+    jobType: "Full-time",
+    minSalary: "90000",
+    maxSalary: "115000",
+    salaryFrequency: "per year",
+    compensation: "€90k – €115k / yr",
+    applicantsCount: 19,
+    deadline: "2025-06-14",
+    postedTime: "Posted 1w ago",
+    status: "Active",
+    responsibilities:
+      "Architect and scale distributed event-driven systems and microservices across hybrid cloud regions.",
+    requirements:
+      "• 6+ years of distributed backend systems experience\n• Proficiency with Go, Kafka, and Kubernetes\n• Deep knowledge of database sharding and low-latency API design",
+    createdAt: new Date("2026-01-25T12:00:00Z"),
+    updatedAt: new Date("2026-01-25T12:00:00Z"),
+  },
+  {
+    _id: "job-f3",
+    title: "DevOps Specialist",
+    dept: "Infrastructure",
+    company: "HirePulse Platform",
+    category: "Engineering & Tech",
+    location: "Berlin, Germany",
+    isRemote: true,
+    jobType: "Full-time",
+    minSalary: "95000",
+    maxSalary: "120000",
+    salaryFrequency: "per year",
+    compensation: "€95k – €120k / yr",
+    applicantsCount: 12,
+    deadline: "2025-06-30",
+    postedTime: "Posted 2w ago",
+    status: "Active",
+    responsibilities:
+      "Maintain 99.99% infrastructure uptime, implement automated CI/CD pipelines, and manage cloud security posture.",
+    requirements:
+      "• AWS, GCP, Terraform, and Docker expertise\n• Experience with Prometheus and Datadog monitoring\n• Strong shell scripting and automation skills",
+    createdAt: new Date("2026-01-20T09:00:00Z"),
+    updatedAt: new Date("2026-01-20T09:00:00Z"),
+  },
+  {
+    _id: "job-f4",
+    title: "Product Marketing Lead",
+    dept: "Growth",
+    company: "HirePulse Network",
+    category: "Marketing & Sales",
+    location: "Remote (EU/US)",
+    isRemote: true,
+    jobType: "Full-time",
+    minSalary: "80000",
+    maxSalary: "105000",
+    salaryFrequency: "per year",
+    compensation: "€80k – €105k / yr",
+    applicantsCount: 27,
+    deadline: "2025-07-15",
+    postedTime: "Posted 5d ago",
+    status: "Active",
+    responsibilities:
+      "Drive product positioning, messaging, and go-to-market strategies for our recruitment ecosystem.",
+    requirements:
+      "• 4+ years B2B SaaS product marketing experience\n• Excellent copywriting and storytelling ability\n• Data-driven growth and analytics mindset",
+    createdAt: new Date("2026-02-02T15:30:00Z"),
+    updatedAt: new Date("2026-02-02T15:30:00Z"),
+  },
+  {
+    _id: "job-f5",
+    title: "QA Automation Engineer",
+    dept: "Quality",
+    company: "HirePulse Labs",
+    category: "Engineering & Tech",
+    location: "Dublin, Ireland (Hybrid)",
+    isRemote: false,
+    jobType: "Contract",
+    minSalary: "35",
+    maxSalary: "50",
+    salaryFrequency: "per hour",
+    compensation: "€35 – €50 / hr",
+    applicantsCount: 8,
+    deadline: "2025-05-01",
+    postedTime: "Expired",
+    status: "Expired",
+    responsibilities:
+      "Design end-to-end test automation suites for web and mobile interfaces.",
+    requirements:
+      "• Playwright, Cypress, Jest, and CI/CD integration\n• Cross-browser testing and performance benchmarking",
+    createdAt: new Date("2026-01-10T11:00:00Z"),
+    updatedAt: new Date("2026-01-10T11:00:00Z"),
+  },
+  {
+    _id: "job-f6",
+    title: "Senior Product Designer",
+    dept: "Design & UX",
+    company: "Nexus Lab",
+    category: "Design & Creative",
+    location: "Remote",
+    isRemote: true,
+    jobType: "Full-time",
+    minSalary: "130000",
+    maxSalary: "160000",
+    salaryFrequency: "per year",
+    compensation: "$130k – $160k / yr",
+    applicantsCount: 22,
+    deadline: "2025-06-20",
+    postedTime: "Posted 3d ago",
+    status: "Active",
+    responsibilities:
+      "Lead UX architecture and design systems for enterprise-grade talent tools.",
+    requirements:
+      "• Advanced Figma prototyping\n• Proven portfolio of complex web applications\n• Strong empathy for end-user workflows",
+    createdAt: new Date("2026-02-04T14:00:00Z"),
+    updatedAt: new Date("2026-02-04T14:00:00Z"),
+  },
+];
+
+export async function seedJobs() {
+  const client = new MongoClient(uri);
+  try {
+    await client.connect();
+    const db = client.db(dbName);
+    const jobsCol = db.collection('jobs');
+
+    let count = 0;
+    for (const job of demoJobs) {
+      await jobsCol.updateOne(
+        { _id: job._id },
+        { $set: job },
+        { upsert: true }
+      );
+      count++;
+    }
+    const total = await jobsCol.countDocuments();
+    console.log(`✅ Jobs Seeding complete! Processed ${count} jobs. Total jobs in DB: ${total}`);
+    return total;
+  } catch (err) {
+    console.error("❌ Jobs Seeding Error:", err);
+  } finally {
+    await client.close();
+  }
+}
+
 // Execute if run directly from CLI
 if (process.argv[1]?.endsWith('seed.js')) {
-  seedUsers();
+  seedUsers().then(() => seedJobs());
 }
+
