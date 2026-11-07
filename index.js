@@ -28,9 +28,9 @@ export async function connectToMongoDB() {
 
 await connectToMongoDB();
 
-const database = client.db('hireloopdb');
+const dbName = process.env.MONGODB_DB_NAME || 'hireloopdb';
+const database = client.db(dbName);
 const usersCollection = database.collection('user');
-
 
 app.get('/', (req, res) => {
   res.send('Hello World!');
@@ -39,12 +39,12 @@ app.get('/', (req, res) => {
 app.get('/users', async (req, res) => {
   try {
     const users = await usersCollection.find({}).toArray();
-    const result = await Cursor.toArray();
     res.json(users);
-    } catch (err) {
+  } catch (err) {
     console.error("Error fetching users:", err);
     res.status(500).json({ error: 'Internal Server Error' });
-  }});
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
