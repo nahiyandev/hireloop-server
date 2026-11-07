@@ -36,13 +36,28 @@ app.get('/', (req, res) => {
   res.send('Hello World!');
 });
 
+import { demoUsers, seedUsers } from './seed.js';
+
 app.get('/users', async (req, res) => {
   try {
-    const users = await usersCollection.find({}).toArray();
+    const role = req.query.role;
+    const query = role ? { role } : {};
+    const users = await usersCollection.find(query).sort({ createdAt: -1 }).toArray();
     res.json(users);
   } catch (err) {
     console.error("Error fetching users:", err);
     res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Endpoint to quickly re-seed demo users from browser/client
+app.get('/users/seed', async (req, res) => {
+  try {
+    await seedUsers();
+    const count = await usersCollection.countDocuments();
+    res.json({ message: "25 Demo users seeded successfully!", totalUsers: count });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to seed demo users" });
   }
 });
 
