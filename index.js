@@ -164,6 +164,278 @@ app.get('/jobs/seed', async (req, res) => {
   }
 });
 
+
+// ==========================================
+// APPLICATIONS API ENDPOINTS (STEP 1 & 2)
+// ==========================================
+
+// 1. Submit Application
+app.post('/applications', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const applicationsCollection = db.collection('applications');
+    const jobsCollection = db.collection('jobs');
+
+    const {
+      jobId,
+      jobTitle,
+      company,
+      fullName,
+      email,
+      phoneNumber,
+      portfolioUrl,
+      linkedinUrl,
+      note,
+      userId,
+    } = req.body;
+
+    if (!jobId || !fullName || !email) {
+      return res.status(400).json({ error: 'Job ID, full name, and email are required.' });
+    }
+
+    const newApplication = {
+      jobId: String(jobId),
+      jobTitle: jobTitle || 'Position',
+      company: company || 'Company',
+      fullName,
+      email,
+      phoneNumber: phoneNumber || '',
+      portfolioUrl: portfolioUrl || '',
+      linkedinUrl: linkedinUrl || '',
+      note: note || '',
+      userId: userId || null,
+      status: 'Pending',
+      appliedAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const result = await applicationsCollection.insertOne(newApplication);
+
+    // Increment applicantsCount on the job if valid ObjectId
+    try {
+      let query = { _id: jobId };
+      if (ObjectId.isValid(jobId)) {
+        query = { $or: [{ _id: new ObjectId(jobId) }, { _id: jobId }] };
+      }
+      await jobsCollection.updateOne(query, { $inc: { applicantsCount: 1 } });
+    } catch (countErr) {
+      console.warn('Could not increment applicants count:', countErr);
+    }
+
+    res.status(201).json({
+      message: 'Application submitted successfully!',
+      applicationId: result.insertedId,
+      application: { ...newApplication, _id: result.insertedId },
+    });
+  } catch (err) {
+    console.error('Error submitting application:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// 2. Fetch Applications with Filters (for Seeker and Recruiter)
+app.get('/applications', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const applicationsCollection = db.collection('applications');
+    const { email, jobId, company, status } = req.query;
+    const query = {};
+
+    if (email) {
+      query.email = new RegExp('^' + email + '
+
+app.get('/users', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const usersCollection = db.collection('user');
+    const role = req.query.role;
+    const query = role ? { role } : {};
+    const users = await usersCollection.find(query).sort({ createdAt: -1 }).toArray();
+    res.json(users);
+  } catch (err) {
+    console.error("Error fetching users:", err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Endpoint to quickly re-seed demo users from browser/client
+app.get('/users/seed', async (req, res) => {
+  try {
+    await seedUsers();
+    const db = await getDatabase();
+    const count = await db.collection('user').countDocuments();
+    res.json({ message: "Demo users seeded successfully!", totalUsers: count });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to seed demo users" });
+  }
+});
+
+// Start listening if running as a standalone node server (local)
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`HireLoop server is running on port ${PORT}`);
+  });
+}
+
+// Export app for Vercel Serverless Function handler
+export default app;
+, 'i');
+    }
+    if (jobId) {
+      query.jobId = String(jobId);
+    }
+    if (company) {
+      query.company = new RegExp(company, 'i');
+    }
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    const applications = await applicationsCollection.find(query).sort({ appliedAt: -1 }).toArray();
+    res.json(applications);
+  } catch (err) {
+    console.error('Error fetching applications:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// 3. Update Application Status (for Recruiter Dashboard)
+app.patch('/applications/:id/status', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const applicationsCollection = db.collection('applications');
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ error: 'Status is required.' });
+    }
+
+    let query = { _id: id };
+    if (ObjectId.isValid(id)) {
+      query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+    }
+
+    const result = await applicationsCollection.updateOne(query, {
+      $set: { status, updatedAt: new Date() },
+    });
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Application not found.' });
+    }
+
+    res.json({ message: 'Application status updated successfully.', status });
+  } catch (err) {
+    console.error('Error updating application status:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// 4. Delete / Withdraw Application
+app.delete('/applications/:id', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const applicationsCollection = db.collection('applications');
+    const { id } = req.params;
+
+    let query = { _id: id };
+    if (ObjectId.isValid(id)) {
+      query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+    }
+
+    const result = await applicationsCollection.deleteOne(query);
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Application not found.' });
+    }
+
+    res.json({ message: 'Application removed successfully.' });
+  } catch (err) {
+    console.error('Error deleting application:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// ==========================================
+// USER UPGRADE / SUBSCRIPTION (STEP 4)
+// ==========================================
+
+app.post('/payments/upgrade', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const usersCollection = db.collection('user');
+    const { email, plan, transactionId } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'User email is required.' });
+    }
+
+    const updatedPlan = plan === 'growth' ? 'growth' : 'pro';
+
+    const result = await usersCollection.updateOne(
+      { email: new RegExp('^' + email + '
+
+app.get('/users', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const usersCollection = db.collection('user');
+    const role = req.query.role;
+    const query = role ? { role } : {};
+    const users = await usersCollection.find(query).sort({ createdAt: -1 }).toArray();
+    res.json(users);
+  } catch (err) {
+    console.error("Error fetching users:", err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Endpoint to quickly re-seed demo users from browser/client
+app.get('/users/seed', async (req, res) => {
+  try {
+    await seedUsers();
+    const db = await getDatabase();
+    const count = await db.collection('user').countDocuments();
+    res.json({ message: "Demo users seeded successfully!", totalUsers: count });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to seed demo users" });
+  }
+});
+
+// Start listening if running as a standalone node server (local)
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`HireLoop server is running on port ${PORT}`);
+  });
+}
+
+// Export app for Vercel Serverless Function handler
+export default app;
+, 'i') },
+      {
+        $set: {
+          accountType: updatedPlan,
+          plan: updatedPlan,
+          isPro: updatedPlan === 'pro',
+          updatedAt: new Date(),
+          lastPayment: {
+            plan: updatedPlan,
+            transactionId: transactionId || 'tx_' + Date.now(),
+            date: new Date(),
+          },
+        },
+      }
+    );
+
+    res.json({
+      message: 'User upgraded to ' + updatedPlan + ' successfully!',
+      plan: updatedPlan,
+      matched: result.matchedCount,
+    });
+  } catch (err) {
+    console.error('Error upgrading user plan:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 // ==========================================
 // USERS API ENDPOINTS
 // ==========================================
