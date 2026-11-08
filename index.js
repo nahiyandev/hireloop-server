@@ -91,7 +91,7 @@ app.get('/jobs', async (req, res) => {
     const query = {};
 
     if (status && status !== "all") {
-      query.status = new RegExp(`^${status}$`, "i");
+      query.status = new RegExp('^' + status + '$', "i");
     }
     if (category && category !== "all") {
       query.category = category;
@@ -164,9 +164,8 @@ app.get('/jobs/seed', async (req, res) => {
   }
 });
 
-
 // ==========================================
-// APPLICATIONS API ENDPOINTS (STEP 1 & 2)
+// APPLICATIONS API ENDPOINTS
 // ==========================================
 
 // 1. Submit Application
@@ -233,7 +232,7 @@ app.post('/applications', async (req, res) => {
   }
 });
 
-// 2. Fetch Applications with Filters (for Seeker and Recruiter)
+// 2. Fetch Applications with Filters
 app.get('/applications', async (req, res) => {
   try {
     const db = await getDatabase();
@@ -242,44 +241,7 @@ app.get('/applications', async (req, res) => {
     const query = {};
 
     if (email) {
-      query.email = new RegExp('^' + email + '
-
-app.get('/users', async (req, res) => {
-  try {
-    const db = await getDatabase();
-    const usersCollection = db.collection('user');
-    const role = req.query.role;
-    const query = role ? { role } : {};
-    const users = await usersCollection.find(query).sort({ createdAt: -1 }).toArray();
-    res.json(users);
-  } catch (err) {
-    console.error("Error fetching users:", err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-// Endpoint to quickly re-seed demo users from browser/client
-app.get('/users/seed', async (req, res) => {
-  try {
-    await seedUsers();
-    const db = await getDatabase();
-    const count = await db.collection('user').countDocuments();
-    res.json({ message: "Demo users seeded successfully!", totalUsers: count });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to seed demo users" });
-  }
-});
-
-// Start listening if running as a standalone node server (local)
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-  app.listen(PORT, () => {
-    console.log(`HireLoop server is running on port ${PORT}`);
-  });
-}
-
-// Export app for Vercel Serverless Function handler
-export default app;
-, 'i');
+      query.email = new RegExp('^' + email + '$', 'i');
     }
     if (jobId) {
       query.jobId = String(jobId);
@@ -299,7 +261,7 @@ export default app;
   }
 });
 
-// 3. Update Application Status (for Recruiter Dashboard)
+// 3. Update Application Status
 app.patch('/applications/:id/status', async (req, res) => {
   try {
     const db = await getDatabase();
@@ -356,7 +318,7 @@ app.delete('/applications/:id', async (req, res) => {
 });
 
 // ==========================================
-// USER UPGRADE / SUBSCRIPTION (STEP 4)
+// USER UPGRADE / SUBSCRIPTION
 // ==========================================
 
 app.post('/payments/upgrade', async (req, res) => {
@@ -372,44 +334,7 @@ app.post('/payments/upgrade', async (req, res) => {
     const updatedPlan = plan === 'growth' ? 'growth' : 'pro';
 
     const result = await usersCollection.updateOne(
-      { email: new RegExp('^' + email + '
-
-app.get('/users', async (req, res) => {
-  try {
-    const db = await getDatabase();
-    const usersCollection = db.collection('user');
-    const role = req.query.role;
-    const query = role ? { role } : {};
-    const users = await usersCollection.find(query).sort({ createdAt: -1 }).toArray();
-    res.json(users);
-  } catch (err) {
-    console.error("Error fetching users:", err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-// Endpoint to quickly re-seed demo users from browser/client
-app.get('/users/seed', async (req, res) => {
-  try {
-    await seedUsers();
-    const db = await getDatabase();
-    const count = await db.collection('user').countDocuments();
-    res.json({ message: "Demo users seeded successfully!", totalUsers: count });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to seed demo users" });
-  }
-});
-
-// Start listening if running as a standalone node server (local)
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-  app.listen(PORT, () => {
-    console.log(`HireLoop server is running on port ${PORT}`);
-  });
-}
-
-// Export app for Vercel Serverless Function handler
-export default app;
-, 'i') },
+      { email: new RegExp('^' + email + '$', 'i') },
       {
         $set: {
           accountType: updatedPlan,
@@ -469,7 +394,7 @@ app.get('/users/seed', async (req, res) => {
 // Start listening if running as a standalone node server (local)
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
   app.listen(PORT, () => {
-    console.log(`HireLoop server is running on port ${PORT}`);
+    console.log('HireLoop server is running on port ' + PORT);
   });
 }
 
