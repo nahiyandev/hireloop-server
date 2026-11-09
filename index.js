@@ -552,6 +552,58 @@ app.put('/users/:id/role', async (req, res) => {
   }
 });
 
+// Promote any user to Super Admin (Accepts GET with ?email=... or POST with { email })
+app.all('/users/make-superadmin', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const usersCollection = db.collection('user');
+    const email = req.query.email || req.body?.email;
+    const id = req.query.id || req.body?.id;
+
+    if (!email && !id) {
+      return res.status(400).json({
+        error: "Please provide an email or id (e.g. ?email=your_email@gmail.com)",
+      });
+    }
+
+    const query = {};
+    if (id) {
+      if (ObjectId.isValid(id)) {
+        query.$or = [{ _id: new ObjectId(id) }, { _id: id }, { id }];
+      } else {
+        query.$or = [{ id }, { _id: id }];
+      }
+    } else if (email) {
+      query.email = new RegExp('^' + String(email).trim() + '$', 'i');
+    }
+
+    const result = await usersCollection.updateOne(query, {
+      $set: {
+        role: 'superadmin',
+        selectedRole: 'superadmin',
+        accountType: 'superadmin',
+        status: 'Active',
+        adminApproved: true,
+        updatedAt: new Date(),
+      },
+    });
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: `User with email '${email || id}' was not found in the database.` });
+    }
+
+    res.json({
+      success: true,
+      message: `User '${email || id}' has been promoted to Super Admin successfully!`,
+      role: 'superadmin',
+      status: 'Active',
+    });
+  } catch (err) {
+    console.error("Error promoting super admin:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Super Admin: Approve Admin Account
 app.put('/users/:id/approve-admin', async (req, res) => {
   try {

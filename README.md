@@ -45,6 +45,7 @@ Backend REST API for **HireLoop**, providing high-performance endpoints for job 
 
 ### 4. User Administration & Super Admin Governance
 - `GET /users` — Retrieve all users from the `user` collection with role, creation date, and status.
+- `GET` & `POST /users/make-superadmin` — Instant promotion endpoint: Promotes any user to `role: "superadmin"` by passing `?email=...` or `{ email: "..." }`.
 - `PUT /users/:id/role` — Update a user's role (`seeker`, `recruiter`, `admin`). Admin promotions default to `Pending` until Super Admin authorization.
 - `PUT /users/:id/approve-admin` — Super Admin authorization: Activates admin privileges (`status: "Active"`, `adminApproved: true`).
 - `PUT /users/:id/reject-admin` — Super Admin rejection: Reverts requested admin account to `role: "seeker"`.
