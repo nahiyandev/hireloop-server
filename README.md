@@ -37,6 +37,9 @@ Backend REST API for **HireLoop**, providing high-performance endpoints for job 
 ### 3. Applications
 - `GET /applications` — Fetch job applications (filterable by `jobId`, `userId`, `email`, or `company`).
 - `POST /applications` — Submit a candidate job application:
+  - **Auth & Role Gate**: Requires valid `userId`; enforces strict `role: 'seeker'` database verification (returns 403 if recruiter/admin).
+  - **Duplicate Prevention**: Rejects duplicate submissions from the same user for the same `jobId` (returns 409).
+  - **Linkage**: Explicitly connects `userId` and `jobId` in the database record.
   - Fields: `jobId`, `jobTitle`, `company`, `fullName`, `email`, `phoneNumber`, `portfolioUrl`, `linkedinUrl`, `note`, `userId`.
 - `PATCH /applications/:id/status` & `PUT /applications/:id/stage` — Update candidate pipeline stage (`New`, `Reviewing`, `Interviewing`, `Shortlisted`, `Offer`, `Rejected`).
 

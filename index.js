@@ -168,12 +168,13 @@ app.get('/jobs/seed', async (req, res) => {
 // APPLICATIONS API ENDPOINTS
 // ==========================================
 
-// 1. Submit Application
+// 1. Submit Application (Strict Seeker Role and Authenticated User Required)
 app.post('/applications', async (req, res) => {
   try {
     const db = await getDatabase();
     const applicationsCollection = db.collection('applications');
     const jobsCollection = db.collection('jobs');
+    const usersCollection = db.collection('user');
 
     const {
       jobId,
@@ -192,17 +193,61 @@ app.post('/applications', async (req, res) => {
       return res.status(400).json({ error: 'Job ID, full name, and email are required.' });
     }
 
+    // 1. Enforce Authentication
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required. Please sign in to submit an application.' });
+    }
+
+    // 2. Strict Role Verification: Only 'seeker' accounts are permitted to apply
+    let user = null;
+    try {
+      if (ObjectId.isValid(userId)) {
+        user = await usersCollection.findOne({
+          $or: [{ _id: new ObjectId(userId) }, { _id: userId }, { id: userId }, { email: String(email).toLowerCase() }],
+        });
+      } else {
+        user = await usersCollection.findOne({
+          $or: [{ id: userId }, { _id: userId }, { email: String(email).toLowerCase() }],
+        });
+      }
+    } catch {
+      // ignore
+    }
+
+    if (user && user.role && user.role !== 'seeker') {
+      return res.status(403).json({
+        error: `Only Job Seekers can apply for jobs. Your current account role is "${user.role}".`,
+      });
+    }
+
+    // 3. Prevent duplicate applications for the same Job ID by this user
+    const existingApplication = await applicationsCollection.findOne({
+      jobId: String(jobId),
+      $or: [
+        { userId: String(userId) },
+        { email: new RegExp('^' + email.trim() + '$', 'i') },
+      ],
+    });
+
+    if (existingApplication) {
+      return res.status(409).json({
+        error: 'You have already submitted an application for this position.',
+        applicationId: existingApplication._id,
+      });
+    }
+
     const newApplication = {
       jobId: String(jobId),
       jobTitle: jobTitle || 'Position',
       company: company || 'Company',
-      fullName,
-      email,
+      fullName: fullName.trim(),
+      email: email.trim().toLowerCase(),
       phoneNumber: phoneNumber || '',
       portfolioUrl: portfolioUrl || '',
       linkedinUrl: linkedinUrl || '',
       note: note || '',
-      userId: userId || null,
+      userId: String(userId),
+      userRole: 'seeker',
       status: 'Pending',
       appliedAt: new Date(),
       updatedAt: new Date(),
@@ -232,12 +277,42 @@ app.post('/applications', async (req, res) => {
   }
 });
 
-// 2. Fetch Applications with Filters
+// 2. Fetch Applications with Filters (Linked by userId, email, or jobId)
 app.get('/applications', async (req, res) => {
   try {
     const db = await getDatabase();
     const applicationsCollection = db.collection('applications');
-    const { email, jobId, company, status } = req.query;
+    const { email, userId, jobId, company, status } = req.query;
+    const query = {};
+
+    if (userId && email) {
+      query.$or = [
+        { userId: String(userId) },
+        { email: new RegExp('^' + email.trim() + '$', 'i') },
+      ];
+    } else if (userId) {
+      query.userId = String(userId);
+    } else if (email) {
+      query.email = new RegExp('^' + email.trim() + '$', 'i');
+    }
+
+    if (jobId) {
+      query.jobId = String(jobId);
+    }
+    if (company) {
+      query.company = new RegExp(company, 'i');
+    }
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    const applications = await applicationsCollection.find(query).sort({ appliedAt: -1 }).toArray();
+    res.json(applications);
+  } catch (err) {
+    console.error('Error fetching applications:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
     const query = {};
 
     if (email) {
