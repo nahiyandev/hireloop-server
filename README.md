@@ -46,11 +46,11 @@ Backend REST API for **HireLoop**, providing high-performance endpoints for job 
 ### 4. User Administration & Super Admin Governance
 - `GET /users` — Retrieve all users from the `user` collection with role, creation date, and status.
 - `GET` & `POST /users/make-superadmin` — Instant promotion endpoint: Promotes any user to `role: "superadmin"` by passing `?email=...` or `{ email: "..." }`.
-- `PUT /users/:id/role` — Update a user's role (`seeker`, `recruiter`, `admin`). Admin promotions default to `Pending` until Super Admin authorization.
+- `PUT /users/:id/role` — Update a user's role (`seeker`, `recruiter`, `admin`). Admin promotions default to `Pending` until Super Admin authorization. Super Admin accounts are root protected and cannot be altered or demoted (returns 403 Forbidden).
 - `PUT /users/:id/approve-admin` — Super Admin authorization: Activates admin privileges (`status: "Active"`, `adminApproved: true`).
 - `PUT /users/:id/reject-admin` — Super Admin rejection: Reverts requested admin account to `role: "seeker"`.
-- `PUT /users/:id/status` — Toggle user account status (`Active`, `Pending`, `Suspended`).
-- `DELETE /users/:id` — Permanently delete a user profile.
+- `PUT /users/:id/status` — Toggle user account status (`Active`, `Pending`, `Suspended`). Super Admin accounts cannot be suspended (returns 403 Forbidden).
+- `DELETE /users/:id` — Permanently delete a user profile. Super Admin accounts are root protected and cannot be deleted (returns 403 Forbidden).
 
 ### 5. Companies & Payments
 - `GET /companies` — Dynamically aggregates all unique companies from active jobs collection with location, industry, and total posted jobs.

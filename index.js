@@ -534,6 +534,12 @@ app.put('/users/:id/role', async (req, res) => {
       query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
     }
 
+    // Protect Super Admin accounts from demotion or role alteration
+    const targetUser = await usersCollection.findOne(query);
+    if (targetUser && (targetUser.role === 'superadmin' || targetUser.selectedRole === 'superadmin' || targetUser.accountType === 'superadmin')) {
+      return res.status(403).json({ error: "Forbidden: Super Admin accounts are root administrators and cannot be demoted or altered." });
+    }
+
     const updateFields = { role, updatedAt: new Date() };
     if (role === 'admin') {
       // Admin accounts require Super Admin approval: default to Pending unless explicitly approved
@@ -679,6 +685,12 @@ app.put('/users/:id/status', async (req, res) => {
       query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
     }
 
+    // Protect Super Admin accounts from suspension
+    const targetUser = await usersCollection.findOne(query);
+    if (targetUser && (targetUser.role === 'superadmin' || targetUser.selectedRole === 'superadmin' || targetUser.accountType === 'superadmin')) {
+      return res.status(403).json({ error: "Forbidden: Super Admin accounts cannot be suspended." });
+    }
+
     await usersCollection.updateOne(query, {
       $set: {
         status,
@@ -704,6 +716,12 @@ app.delete('/users/:id', async (req, res) => {
     let query = { _id: id };
     if (ObjectId.isValid(id)) {
       query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+    }
+
+    // Protect Super Admin accounts from deletion
+    const targetUser = await usersCollection.findOne(query);
+    if (targetUser && (targetUser.role === 'superadmin' || targetUser.selectedRole === 'superadmin' || targetUser.accountType === 'superadmin')) {
+      return res.status(403).json({ error: "Forbidden: Super Admin accounts are root administrators and cannot be deleted." });
     }
 
     await usersCollection.deleteOne(query);
