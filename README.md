@@ -53,7 +53,9 @@ Backend REST API for **HireLoop**, providing high-performance endpoints for job 
 - `DELETE /users/:id` — Permanently delete a user profile. Super Admin accounts are root protected and cannot be deleted (returns 403 Forbidden).
 
 ### 5. Companies & Payments
-- `GET /companies` — Dynamically aggregates all unique companies from active jobs collection with location, industry, and total posted jobs.
+- `GET /companies` — Dynamically aggregates all stored employer profiles from `companies` collection combined with unique companies from active `jobs`.
+- `GET /companies/profile` — Fetch single recruiter company profile by `?recruiterEmail=...`, `?recruiterId=...`, or `?name=...` (with fallback to job metadata).
+- `POST /companies/profile` — Upsert recruiter company profile details (`name`, `website`, `industry`, `size`, `headquarters`, `founded`, `tagline`, `about`, `brandColor`, `recruiterEmail`, `recruiterId`).
 - `GET /payments` — Returns payment transaction records, auto-synced with initial user upgrades if empty.
 - `POST /payments/upgrade` — Record upgraded Pro subscription checkouts with transaction IDs.
 

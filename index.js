@@ -485,20 +485,164 @@ app.get('/payments', async (req, res) => {
 // COMPANIES API ENDPOINTS
 // ==========================================
 
+// 1. Get Recruiter's Company Profile
+app.get('/companies/profile', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const companiesCollection = db.collection('companies');
+    const { recruiterEmail, recruiterId, name } = req.query;
+
+    const orConditions = [];
+    if (recruiterEmail) orConditions.push({ recruiterEmail: new RegExp('^' + recruiterEmail.trim() + '$', 'i') });
+    if (recruiterId) orConditions.push({ recruiterId: String(recruiterId) });
+    if (name) orConditions.push({ name: new RegExp('^' + name.trim() + '$', 'i') });
+
+    if (orConditions.length > 0) {
+      const company = await companiesCollection.findOne({ $or: orConditions });
+      if (company) {
+        return res.json(company);
+      }
+    }
+
+    // Fallback: check if recruiter posted any jobs with a company name
+    if (recruiterEmail || recruiterId) {
+      const jobQuery = [];
+      if (recruiterEmail) {
+        jobQuery.push(
+          { recruiterEmail: new RegExp('^' + recruiterEmail.trim() + '$', 'i') },
+          { postedBy: new RegExp('^' + recruiterEmail.trim() + '$', 'i') }
+        );
+      }
+      if (recruiterId) jobQuery.push({ recruiterId: String(recruiterId) });
+      const job = await db.collection('jobs').findOne({ $or: jobQuery });
+      if (job && job.company) {
+        return res.json({
+          name: job.company,
+          website: 'https://' + job.company.toLowerCase().replace(/[^a-z0-9]/g, '') + '.io',
+          industry: job.category || 'Technology',
+          size: '50 - 250 Employees',
+          headquarters: job.location || 'Remote',
+          founded: '2022',
+          tagline: `Pioneering the future of ${job.category || 'Technology'}.`,
+          about: `${job.company} is an innovative organization focused on building top-tier digital products.`,
+        });
+      }
+    }
+
+    res.json(null);
+  } catch (err) {
+    console.error('Error fetching company profile:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// 2. Save / Update Recruiter Company Profile
+app.post('/companies/profile', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const companiesCollection = db.collection('companies');
+    const {
+      name,
+      website,
+      industry,
+      size,
+      headquarters,
+      founded,
+      tagline,
+      about,
+      brandColor,
+      recruiterEmail,
+      recruiterId,
+    } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: 'Company name is required.' });
+    }
+
+    const filter = {};
+    if (recruiterEmail) {
+      filter.$or = [
+        { recruiterEmail: new RegExp('^' + recruiterEmail.trim() + '$', 'i') },
+        { name: new RegExp('^' + name.trim() + '$', 'i') },
+      ];
+    } else {
+      filter.name = new RegExp('^' + name.trim() + '$', 'i');
+    }
+
+    const updateDoc = {
+      $set: {
+        name: name.trim(),
+        website: website || '',
+        industry: industry || 'Technology',
+        size: size || '50 - 250 Employees',
+        headquarters: headquarters || 'Remote',
+        founded: founded || '2022',
+        tagline: tagline || '',
+        about: about || '',
+        brandColor: brandColor || '#665df5',
+        recruiterEmail: recruiterEmail ? recruiterEmail.toLowerCase().trim() : '',
+        recruiterId: recruiterId ? String(recruiterId) : '',
+        updatedAt: new Date(),
+      },
+      $setOnInsert: {
+        createdAt: new Date(),
+      },
+    };
+
+    await companiesCollection.updateOne(filter, updateDoc, { upsert: true });
+    const saved = await companiesCollection.findOne(filter);
+
+    res.json({
+      message: 'Company profile saved successfully.',
+      company: saved,
+    });
+  } catch (err) {
+    console.error('Error saving company profile:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// 3. Fetch All Companies (Aggregated stored companies + unique companies from jobs)
 app.get('/companies', async (req, res) => {
   try {
     const db = await getDatabase();
-    const jobs = await db.collection('jobs').find({}).toArray();
+    const [jobs, storedCompanies] = await Promise.all([
+      db.collection('jobs').find({}).toArray(),
+      db.collection('companies').find({}).toArray(),
+    ]);
+
     const companyMap = new Map();
 
+    // First load explicit stored companies
+    storedCompanies.forEach((c) => {
+      const key = (c.name || 'Company').toLowerCase().trim();
+      companyMap.set(key, {
+        id: c._id ? String(c._id) : 'comp-' + key.replace(/[^a-z0-9]/g, '-'),
+        name: c.name,
+        initial: (c.name?.[0] || 'C').toUpperCase(),
+        domain: (c.website ? c.website.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : (key.replace(/[^a-z0-9]/g, '') + '.io')),
+        industry: c.industry || 'Technology',
+        size: c.size || '50-250 Employees',
+        location: c.headquarters || 'Remote',
+        jobsCount: 0,
+        tier: 'Enterprise',
+        status: 'Verified',
+        joinedDate: c.createdAt
+          ? new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+          : 'Jan 2024',
+      });
+    });
+
+    // Augment with jobs counts and unlisted companies from jobs
     jobs.forEach((j) => {
-      const name = j.company || 'TechCorp';
-      if (!companyMap.has(name)) {
-        companyMap.set(name, {
-          id: 'comp-' + name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-          name: name,
-          initial: (name[0] || 'C').toUpperCase(),
-          domain: name.toLowerCase().replace(/[^a-z0-9]/g, '') + '.io',
+      const rawName = j.company || 'TechCorp';
+      const key = rawName.toLowerCase().trim();
+      if (!companyMap.has(key)) {
+        companyMap.set(key, {
+          id: 'comp-' + key.replace(/[^a-z0-9]/g, '-'),
+          name: rawName,
+          initial: (rawName[0] || 'C').toUpperCase(),
+          domain: key.replace(/[^a-z0-9]/g, '') + '.io',
           industry: j.category || 'Technology',
           size: '50-250 Employees',
           location: j.location || (j.isRemote ? 'Remote' : 'San Francisco, CA'),
@@ -510,7 +654,7 @@ app.get('/companies', async (req, res) => {
             : 'Jan 2024',
         });
       } else {
-        companyMap.get(name).jobsCount += 1;
+        companyMap.get(key).jobsCount += 1;
       }
     });
 
