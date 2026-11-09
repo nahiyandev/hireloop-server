@@ -25,6 +25,8 @@ Backend REST API for **HireLoop**, providing high-performance endpoints for job 
 - `GET /jobs` — Fetch all job listings with support for query filters:
   - `?search=<term>`: Case-insensitive regex search on title, company, and location.
   - `?category=<category>`: Filter by industry/category.
+  - `?type=<type>`: Filter by employment type (`Full-time`, `Contract`, `Freelance`, `Part-time`).
+  - `?workplace=<policy>`: Filter remote or on-site opportunities.
   - `?status=<status>`: Filter by job listing status (`active`, `closed`).
 - `GET /jobs/:id` — Fetch single job details by MongoDB `ObjectId` or string ID.
 - `POST /jobs` — Create a new job listing.
