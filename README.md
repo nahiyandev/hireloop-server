@@ -33,19 +33,20 @@ Backend REST API for **HireLoop**, providing high-performance endpoints for job 
 - `GET /jobs/seed` — Seed or verify initial database records.
 
 ### 3. Applications
-- `GET /applications` — Fetch job applications (filterable by `jobId`, `userId`, or `company`).
+- `GET /applications` — Fetch job applications (filterable by `jobId`, `userId`, `email`, or `company`).
 - `POST /applications` — Submit a candidate job application:
   - Fields: `jobId`, `jobTitle`, `company`, `fullName`, `email`, `phoneNumber`, `portfolioUrl`, `linkedinUrl`, `note`, `userId`.
-- `PUT /applications/:id/stage` — Update candidate application status (`Applied`, `Reviewing`, `Interviewing`, `Offer`, `Rejected`).
+- `PATCH /applications/:id/status` & `PUT /applications/:id/stage` — Update candidate pipeline stage (`New`, `Reviewing`, `Interviewing`, `Shortlisted`, `Offer`, `Rejected`).
 
 ### 4. User Administration
-- `GET /users` — Retrieve all users from the `user` collection.
+- `GET /users` — Retrieve all users from the `user` collection with role, creation date, and status.
 - `PUT /users/:id/role` — Update a user's role (`seeker`, `recruiter`, `admin`).
-- `DELETE /users/:id` — Delete a user profile.
+- `DELETE /users/:id` — Permanently delete a user profile.
 
 ### 5. Companies & Payments
-- `GET /companies` & `POST /companies` — Manage company profiles and verification status.
-- `GET /payments` & `POST /payments` — Record and audit subscription checkout transactions.
+- `GET /companies` — Dynamically aggregates all unique companies from active jobs collection with location, industry, and total posted jobs.
+- `GET /payments` — Returns payment transaction records, auto-synced with initial user upgrades if empty.
+- `POST /payments/upgrade` — Record upgraded Pro subscription checkouts with transaction IDs.
 
 ---
 
