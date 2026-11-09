@@ -43,9 +43,12 @@ Backend REST API for **HireLoop**, providing high-performance endpoints for job 
   - Fields: `jobId`, `jobTitle`, `company`, `fullName`, `email`, `phoneNumber`, `portfolioUrl`, `linkedinUrl`, `note`, `userId`.
 - `PATCH /applications/:id/status` & `PUT /applications/:id/stage` — Update candidate pipeline stage (`New`, `Reviewing`, `Interviewing`, `Shortlisted`, `Offer`, `Rejected`).
 
-### 4. User Administration
+### 4. User Administration & Super Admin Governance
 - `GET /users` — Retrieve all users from the `user` collection with role, creation date, and status.
-- `PUT /users/:id/role` — Update a user's role (`seeker`, `recruiter`, `admin`).
+- `PUT /users/:id/role` — Update a user's role (`seeker`, `recruiter`, `admin`). Admin promotions default to `Pending` until Super Admin authorization.
+- `PUT /users/:id/approve-admin` — Super Admin authorization: Activates admin privileges (`status: "Active"`, `adminApproved: true`).
+- `PUT /users/:id/reject-admin` — Super Admin rejection: Reverts requested admin account to `role: "seeker"`.
+- `PUT /users/:id/status` — Toggle user account status (`Active`, `Pending`, `Suspended`).
 - `DELETE /users/:id` — Permanently delete a user profile.
 
 ### 5. Companies & Payments

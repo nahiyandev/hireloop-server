@@ -521,23 +521,123 @@ app.get('/companies', async (req, res) => {
   }
 });
 
-// Update User Role
+// Update User Role (If promoted to Admin, starts as Pending until Super Admin approves)
 app.put('/users/:id/role', async (req, res) => {
   try {
     const db = await getDatabase();
     const usersCollection = db.collection('user');
     const { id } = req.params;
-    const { role } = req.body;
+    const { role, status } = req.body;
 
     let query = { _id: id };
     if (ObjectId.isValid(id)) {
       query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
     }
 
-    await usersCollection.updateOne(query, { $set: { role, updatedAt: new Date() } });
-    res.json({ message: "User role updated successfully", role });
+    const updateFields = { role, updatedAt: new Date() };
+    if (role === 'admin') {
+      // Admin accounts require Super Admin approval: default to Pending unless explicitly approved
+      updateFields.status = status || 'Pending';
+      updateFields.adminApproved = status === 'Active';
+    } else {
+      updateFields.status = status || 'Active';
+      updateFields.adminApproved = false;
+    }
+
+    await usersCollection.updateOne(query, { $set: updateFields });
+    res.json({ message: "User role updated successfully", role, status: updateFields.status });
   } catch (err) {
     console.error("Error updating user role:", err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Super Admin: Approve Admin Account
+app.put('/users/:id/approve-admin', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const usersCollection = db.collection('user');
+    const { id } = req.params;
+
+    let query = { _id: id };
+    if (ObjectId.isValid(id)) {
+      query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+    }
+
+    await usersCollection.updateOne(query, {
+      $set: {
+        role: 'admin',
+        selectedRole: 'admin',
+        accountType: 'admin',
+        status: 'Active',
+        adminApproved: true,
+        adminApprovedAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    res.json({ message: "Admin account approved by Super Admin successfully!", status: "Active" });
+  } catch (err) {
+    console.error("Error approving admin:", err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Super Admin: Reject Admin Request (Demote back to Seeker)
+app.put('/users/:id/reject-admin', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const usersCollection = db.collection('user');
+    const { id } = req.params;
+
+    let query = { _id: id };
+    if (ObjectId.isValid(id)) {
+      query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+    }
+
+    await usersCollection.updateOne(query, {
+      $set: {
+        role: 'seeker',
+        selectedRole: 'seeker',
+        accountType: 'seeker',
+        status: 'Active',
+        adminApproved: false,
+        adminRejectedAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    res.json({ message: "Admin account request rejected. Account reverted to Seeker.", role: "seeker" });
+  } catch (err) {
+    console.error("Error rejecting admin:", err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Update User Status (Active / Suspended / Pending)
+app.put('/users/:id/status', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const usersCollection = db.collection('user');
+    const { id } = req.params;
+    const { status } = req.body;
+
+    let query = { _id: id };
+    if (ObjectId.isValid(id)) {
+      query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+    }
+
+    await usersCollection.updateOne(query, {
+      $set: {
+        status,
+        banned: status === 'Suspended',
+        updatedAt: new Date(),
+      },
+    });
+
+    res.json({ message: `User status updated to ${status}`, status });
+  } catch (err) {
+    console.error("Error updating user status:", err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
