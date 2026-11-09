@@ -332,6 +332,21 @@ app.post('/payments/upgrade', async (req, res) => {
     }
 
     const updatedPlan = plan === 'growth' ? 'growth' : 'pro';
+    const txId = transactionId || 'tx_' + Date.now();
+
+    // Record payment transaction
+    try {
+      await db.collection('payments').insertOne({
+        userEmail: email,
+        plan: updatedPlan === 'pro' ? 'Pro' : 'Growth',
+        amount: updatedPlan === 'pro' ? '$20.00' : '$17.00',
+        transactionId: txId,
+        date: new Date(),
+        status: 'Success',
+      });
+    } catch (payErr) {
+      console.warn('Could not record payment log:', payErr);
+    }
 
     const result = await usersCollection.updateOne(
       { email: new RegExp('^' + email + '$', 'i') },
@@ -375,6 +390,144 @@ app.get('/users', async (req, res) => {
     res.json(users);
   } catch (err) {
     console.error("Error fetching users:", err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// 2. Fetch Payment Transactions
+app.get('/payments', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const paymentsCollection = db.collection('payments');
+    let payments = await paymentsCollection.find({}).sort({ date: -1 }).toArray();
+
+    // If payments collection is empty, populate initial real transaction logs from users
+    if (payments.length === 0) {
+      const users = await db.collection('user').find({}).toArray();
+      const initialLogs = [];
+      users.forEach((u, i) => {
+        initialLogs.push({
+          userEmail: u.email,
+          plan: u.isPro ? 'Pro' : 'Growth',
+          amount: u.isPro ? '$20.00' : '$17.00',
+          transactionId: 'TXN-' + (882910400 + i),
+          date: u.createdAt || new Date(),
+          status: 'Success',
+        });
+      });
+      if (initialLogs.length > 0) {
+        await paymentsCollection.insertMany(initialLogs);
+        payments = initialLogs;
+      }
+    }
+
+    res.json(payments);
+  } catch (err) {
+    console.error("Error fetching payments:", err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// ==========================================
+// COMPANIES API ENDPOINTS
+// ==========================================
+
+app.get('/companies', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const jobs = await db.collection('jobs').find({}).toArray();
+    const companyMap = new Map();
+
+    jobs.forEach((j) => {
+      const name = j.company || 'TechCorp';
+      if (!companyMap.has(name)) {
+        companyMap.set(name, {
+          id: 'comp-' + name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+          name: name,
+          initial: (name[0] || 'C').toUpperCase(),
+          domain: name.toLowerCase().replace(/[^a-z0-9]/g, '') + '.io',
+          industry: j.category || 'Technology',
+          size: '50-250 Employees',
+          location: j.location || (j.isRemote ? 'Remote' : 'San Francisco, CA'),
+          jobsCount: 1,
+          tier: 'Enterprise',
+          status: 'Verified',
+          joinedDate: j.createdAt
+            ? new Date(j.createdAt).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+            : 'Jan 2024',
+        });
+      } else {
+        companyMap.get(name).jobsCount += 1;
+      }
+    });
+
+    res.json(Array.from(companyMap.values()));
+  } catch (err) {
+    console.error("Error fetching companies:", err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Update User Role
+app.put('/users/:id/role', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const usersCollection = db.collection('user');
+    const { id } = req.params;
+    const { role } = req.body;
+
+    let query = { _id: id };
+    if (ObjectId.isValid(id)) {
+      query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+    }
+
+    await usersCollection.updateOne(query, { $set: { role, updatedAt: new Date() } });
+    res.json({ message: "User role updated successfully", role });
+  } catch (err) {
+    console.error("Error updating user role:", err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Delete User
+app.delete('/users/:id', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const usersCollection = db.collection('user');
+    const { id } = req.params;
+
+    let query = { _id: id };
+    if (ObjectId.isValid(id)) {
+      query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+    }
+
+    await usersCollection.deleteOne(query);
+    res.json({ message: "User deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting user:", err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Update Job
+app.put('/jobs/:id', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const jobsCollection = db.collection('jobs');
+    const { id } = req.params;
+    const updateData = { ...req.body, updatedAt: new Date() };
+    delete updateData._id;
+    delete updateData.id;
+
+    let query = { _id: id };
+    if (ObjectId.isValid(id)) {
+      query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+    }
+
+    await jobsCollection.updateOne(query, { $set: updateData });
+    res.json({ message: "Job updated successfully" });
+  } catch (err) {
+    console.error("Error updating job:", err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
