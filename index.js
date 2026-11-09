@@ -313,28 +313,6 @@ app.get('/applications', async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
-    const query = {};
-
-    if (email) {
-      query.email = new RegExp('^' + email + '$', 'i');
-    }
-    if (jobId) {
-      query.jobId = String(jobId);
-    }
-    if (company) {
-      query.company = new RegExp(company, 'i');
-    }
-    if (status && status !== 'all') {
-      query.status = status;
-    }
-
-    const applications = await applicationsCollection.find(query).sort({ appliedAt: -1 }).toArray();
-    res.json(applications);
-  } catch (err) {
-    console.error('Error fetching applications:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
 
 // 3. Update Application Status
 app.patch('/applications/:id/status', async (req, res) => {
