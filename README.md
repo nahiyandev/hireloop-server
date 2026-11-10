@@ -57,6 +57,8 @@ Backend REST API for **HireLoop**, providing high-performance endpoints for job 
 - `GET /companies` — Dynamically aggregates all stored employer profiles from `companies` collection combined with unique companies from active `jobs`.
 - `GET /companies/profile` — Fetch single recruiter company profile by `?recruiterEmail=...`, `?recruiterId=...`, or `?name=...` (with fallback to job metadata).
 - `POST /companies/profile` — Upsert recruiter company profile details (`name`, `website`, `industry`, `size`, `headquarters`, `founded`, `tagline`, `about`, `brandColor`, `recruiterEmail`, `recruiterId`).
+- `PUT /companies/:id/status` — Update company verification status (`Verified`, `Pending`, `Suspended`). Upserts company profile if previously derived dynamically from jobs.
+- `DELETE /companies/:id` — Delete company record from `companies` collection.
 - `GET /settings` — Retrieve global platform configuration parameters from `settings` collection.
 - `POST /settings` — Upsert global platform settings (maintenance mode, security rules, notification dispatches).
 - `GET /payments` — Returns payment transaction records, auto-synced with initial user upgrades if empty.

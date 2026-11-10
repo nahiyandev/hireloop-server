@@ -617,7 +617,7 @@ app.get('/companies', async (req, res) => {
     storedCompanies.forEach((c) => {
       const key = (c.name || 'Company').toLowerCase().trim();
       companyMap.set(key, {
-        id: c._id ? String(c._id) : 'comp-' + key.replace(/[^a-z0-9]/g, '-'),
+        id: c._id ? String(c._id) : (c.id || 'comp-' + key.replace(/[^a-z0-9]/g, '-')),
         name: c.name,
         initial: (c.name?.[0] || 'C').toUpperCase(),
         domain: (c.website ? c.website.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : (key.replace(/[^a-z0-9]/g, '') + '.io')),
@@ -625,8 +625,8 @@ app.get('/companies', async (req, res) => {
         size: c.size || '50-250 Employees',
         location: c.headquarters || 'Remote',
         jobsCount: 0,
-        tier: 'Enterprise',
-        status: 'Verified',
+        tier: c.tier || 'Enterprise',
+        status: c.status || 'Verified',
         joinedDate: c.createdAt
           ? new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
           : 'Jan 2024',
@@ -662,6 +662,72 @@ app.get('/companies', async (req, res) => {
   } catch (err) {
     console.error("Error fetching companies:", err);
     res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Update Company Status (e.g. 'Verified', 'Pending', 'Suspended')
+app.put('/companies/:id/status', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const companiesCollection = db.collection('companies');
+    const { id } = req.params;
+    const { status, name } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ error: "Status is required" });
+    }
+
+    let query = { id };
+    if (ObjectId.isValid(id)) {
+      query = { $or: [{ _id: new ObjectId(id) }, { id }] };
+    }
+
+    const existing = await companiesCollection.findOne(query);
+    if (existing) {
+      await companiesCollection.updateOne(query, {
+        $set: { status, updatedAt: new Date() }
+      });
+    } else {
+      // Upsert company record if it was originally derived from jobs
+      const companyName = name || id.replace(/^comp-/, '').replace(/-/g, ' ');
+      await companiesCollection.updateOne(
+        { $or: [{ id }, { name: companyName }] },
+        {
+          $set: {
+            id,
+            name: companyName,
+            status,
+            updatedAt: new Date(),
+            createdAt: new Date(),
+          }
+        },
+        { upsert: true }
+      );
+    }
+
+    res.json({ message: "Company status updated successfully", id, status });
+  } catch (err) {
+    console.error("Error updating company status:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// Delete Company Record
+app.delete('/companies/:id', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const { id } = req.params;
+
+    let query = { id };
+    if (ObjectId.isValid(id)) {
+      query = { $or: [{ _id: new ObjectId(id) }, { id }] };
+    }
+
+    await db.collection('companies').deleteOne(query);
+    res.json({ message: "Company record deleted successfully", id });
+  } catch (err) {
+    console.error("Error deleting company:", err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
