@@ -876,6 +876,106 @@ app.delete('/users/:id', async (req, res) => {
   }
 });
 
+// Update User Profile (Seeker / Recruiter Profile & Settings)
+app.put('/users/profile', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const usersCollection = db.collection('user');
+    const { email, id, profileData } = req.body;
+
+    if (!email && !id) {
+      return res.status(400).json({ error: "User email or ID is required." });
+    }
+
+    let query = {};
+    if (id && ObjectId.isValid(id)) {
+      query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+    } else if (email) {
+      query = { email: new RegExp('^' + email.trim() + '$', 'i') };
+    }
+
+    const updateDoc = {
+      $set: {
+        ...profileData,
+        updatedAt: new Date(),
+      },
+    };
+
+    await usersCollection.updateOne(query, updateDoc);
+    const updatedUser = await usersCollection.findOne(query);
+
+    res.json({ message: "Profile updated successfully", user: updatedUser });
+  } catch (err) {
+    console.error("Error updating user profile:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// ==========================================
+// SYSTEM SETTINGS ENDPOINTS
+// ==========================================
+
+// Fetch Platform System Settings
+app.get('/settings', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const settingsCollection = db.collection('settings');
+    const settings = await settingsCollection.findOne({ key: 'platform_config' });
+    if (settings) {
+      return res.json(settings);
+    }
+    // Return default settings if none found
+    res.json({
+      key: 'platform_config',
+      platformName: "HireLoop Enterprise",
+      supportEmail: "support@hireloop.io",
+      systemNotice: "Welcome to HireLoop 2.0 release.",
+      maintenanceMode: false,
+      allowNewRegistrations: true,
+      requireEmailVerification: true,
+      enforce2FA: false,
+      sessionExpiryDays: "30",
+      maxLoginAttempts: "5",
+      adminIpWhitelist: "127.0.0.1, ::1",
+      recruiterApplicationAlerts: true,
+      suspiciousLoginAlerts: true,
+      weeklyPlatformMetrics: true,
+      webhookDispatches: false,
+    });
+  } catch (err) {
+    console.error("Error fetching settings:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// Update Platform System Settings
+app.post('/settings', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const settingsCollection = db.collection('settings');
+    const configData = req.body;
+
+    const filter = { key: 'platform_config' };
+    const updateDoc = {
+      $set: {
+        ...configData,
+        key: 'platform_config',
+        updatedAt: new Date(),
+      },
+      $setOnInsert: {
+        createdAt: new Date(),
+      },
+    };
+
+    await settingsCollection.updateOne(filter, updateDoc, { upsert: true });
+    const saved = await settingsCollection.findOne(filter);
+    res.json({ message: "Settings saved successfully", settings: saved });
+  } catch (err) {
+    console.error("Error saving settings:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 // Update Job
 app.put('/jobs/:id', async (req, res) => {
   try {

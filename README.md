@@ -51,11 +51,14 @@ Backend REST API for **HireLoop**, providing high-performance endpoints for job 
 - `PUT /users/:id/reject-admin` — Super Admin rejection: Reverts requested admin account to `role: "seeker"`.
 - `PUT /users/:id/status` — Toggle user account status (`Active`, `Pending`, `Suspended`). Super Admin accounts cannot be suspended (returns 403 Forbidden).
 - `DELETE /users/:id` — Permanently delete a user profile. Super Admin accounts are root protected and cannot be deleted (returns 403 Forbidden).
+- `PUT /users/profile` — Update candidate/recruiter profile information, resume details, and alert preferences.
 
-### 5. Companies & Payments
+### 5. Companies, Settings & Payments
 - `GET /companies` — Dynamically aggregates all stored employer profiles from `companies` collection combined with unique companies from active `jobs`.
 - `GET /companies/profile` — Fetch single recruiter company profile by `?recruiterEmail=...`, `?recruiterId=...`, or `?name=...` (with fallback to job metadata).
 - `POST /companies/profile` — Upsert recruiter company profile details (`name`, `website`, `industry`, `size`, `headquarters`, `founded`, `tagline`, `about`, `brandColor`, `recruiterEmail`, `recruiterId`).
+- `GET /settings` — Retrieve global platform configuration parameters from `settings` collection.
+- `POST /settings` — Upsert global platform settings (maintenance mode, security rules, notification dispatches).
 - `GET /payments` — Returns payment transaction records, auto-synced with initial user upgrades if empty.
 - `POST /payments/upgrade` — Record upgraded Pro subscription checkouts with transaction IDs.
 
