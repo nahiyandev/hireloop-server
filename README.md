@@ -36,11 +36,13 @@ Backend REST API for **HireLoop**, providing high-performance endpoints for job 
 
 ### 3. Applications
 - `GET /applications` — Fetch job applications (filterable by `jobId`, `userId`, `email`, or `company`).
+- `GET /applications/quota` — Check application quota for a user (`?email=...&userId=...`): Returns `{ isPaid, currentCount, maxLimit: 10, remaining, isLimitReached, upgradeUrl }`.
 - `POST /applications` — Submit a candidate job application:
   - **Auth & Role Gate**: Requires valid `userId`; enforces strict `role: 'seeker'` database verification (returns 403 if recruiter/admin).
   - **Duplicate Prevention**: Rejects duplicate submissions from the same user for the same `jobId` (returns 409).
+  - **Free Tier 10-Application Limit**: Enforces a strict 10-application quota for free accounts. Once 10 applications are submitted, subsequent attempts return `403 Forbidden` with `{ requiresUpgrade: true, upgradeUrl: "/pricing?plan=pro&reason=limit_reached" }`. Paid users (Pro, Growth, Enterprise) enjoy unlimited applications.
   - **Linkage**: Explicitly connects `userId` and `jobId` in the database record.
-  - Fields: `jobId`, `jobTitle`, `company`, `fullName`, `email`, `phoneNumber`, `portfolioUrl`, `linkedinUrl`, `note`, `userId`.
+  - Fields: `jobId`, `jobTitle`, `company`, `fullName`, `email`, `phoneNumber`, `portfolioUrl`, `linkedinUrl`, `note`, `userId`, `resume`.
 - `PATCH /applications/:id/status` & `PUT /applications/:id/stage` — Update candidate pipeline stage (`New`, `Reviewing`, `Interviewing`, `Shortlisted`, `Offer`, `Rejected`).
 
 ### 4. User Administration & Super Admin Governance

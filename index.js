@@ -236,6 +236,43 @@ app.post('/applications', async (req, res) => {
       });
     }
 
+    // 4. Free User Limit Check: Free users can submit up to 10 applications.
+    // Paid (Pro/Growth/Enterprise) users have unlimited applications.
+    const isPaidUser = Boolean(
+      user && (
+        user.isPro === true ||
+        user.plan === 'pro' ||
+        user.plan === 'Pro' ||
+        user.plan === 'growth' ||
+        user.plan === 'Growth' ||
+        user.plan === 'enterprise' ||
+        user.plan === 'Enterprise' ||
+        user.accountType === 'pro' ||
+        user.accountType === 'growth' ||
+        user.accountType === 'enterprise'
+      )
+    );
+
+    if (!isPaidUser) {
+      const userAppCount = await applicationsCollection.countDocuments({
+        $or: [
+          { userId: String(userId) },
+          { email: new RegExp('^' + email.trim() + '$', 'i') },
+        ],
+      });
+
+      if (userAppCount >= 10) {
+        return res.status(403).json({
+          error: 'Free tier limit reached. You can only apply to up to 10 jobs on the Free plan. Please upgrade to Pro for unlimited job applications.',
+          requiresUpgrade: true,
+          applicationLimitReached: true,
+          currentCount: userAppCount,
+          maxLimit: 10,
+          upgradeUrl: '/pricing?plan=pro&reason=limit_reached',
+        });
+      }
+    }
+
     const newApplication = {
       jobId: String(jobId),
       jobTitle: jobTitle || 'Position',
@@ -310,6 +347,71 @@ app.get('/applications', async (req, res) => {
     res.json(applications);
   } catch (err) {
     console.error('Error fetching applications:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Check Application Quota for a User (Free accounts: max 10; Paid accounts: unlimited)
+app.get('/applications/quota', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const { email, userId } = req.query;
+
+    if (!email && !userId) {
+      return res.status(400).json({ error: 'Email or userId is required.' });
+    }
+
+    const usersCollection = db.collection('user');
+    const applicationsCollection = db.collection('applications');
+
+    let user = null;
+    if (userId && ObjectId.isValid(userId)) {
+      user = await usersCollection.findOne({
+        $or: [{ _id: new ObjectId(userId) }, { _id: userId }, { id: userId }, { email: String(email).toLowerCase() }],
+      });
+    } else if (email) {
+      user = await usersCollection.findOne({ email: new RegExp('^' + email.trim() + '$', 'i') });
+    }
+
+    const isPaid = Boolean(
+      user && (
+        user.isPro === true ||
+        user.plan === 'pro' ||
+        user.plan === 'Pro' ||
+        user.plan === 'growth' ||
+        user.plan === 'Growth' ||
+        user.plan === 'enterprise' ||
+        user.plan === 'Enterprise' ||
+        user.accountType === 'pro' ||
+        user.accountType === 'growth' ||
+        user.accountType === 'enterprise'
+      )
+    );
+
+    const query = {};
+    if (userId && email) {
+      query.$or = [{ userId: String(userId) }, { email: new RegExp('^' + email.trim() + '$', 'i') }];
+    } else if (userId) {
+      query.userId = String(userId);
+    } else if (email) {
+      query.email = new RegExp('^' + email.trim() + '$', 'i');
+    }
+
+    const currentCount = await applicationsCollection.countDocuments(query);
+    const maxLimit = 10;
+    const isLimitReached = !isPaid && currentCount >= maxLimit;
+
+    res.json({
+      isPaid,
+      currentCount,
+      maxLimit,
+      remaining: isPaid ? null : Math.max(0, maxLimit - currentCount),
+      isLimitReached,
+      plan: isPaid ? (user?.plan || 'Pro') : 'Free',
+      upgradeUrl: '/pricing?plan=pro&reason=limit_reached',
+    });
+  } catch (err) {
+    console.error('Error fetching application quota:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
